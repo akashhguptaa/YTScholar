@@ -143,7 +143,7 @@ export default function Home(): React.ReactElement {
       webSocketRef.current.close(1000, "New connection initiated")
     }
 
-    const ws = new WebSocket("https://08b0-202-164-41-66.ngrok-free.app")
+    const ws = new WebSocket("wss://b0d4-182-75-25-162.ngrok-free.app/ws")
 
     ws.onopen = () => {
       console.log("WebSocket connection established")
