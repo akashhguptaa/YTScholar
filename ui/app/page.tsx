@@ -167,7 +167,7 @@ export default function Home(): React.ReactElement {
         if (response.type === "chat_response") {
           // Handle chat response
           if (response.message) {
-            setChatMessages((prev: any) => [...prev, { type: "ai", content: response.message }])
+            setChatMessages((prev) => [...prev, { type: "ai", content: response.message ?? "" }]);
           }
           return
         }
@@ -180,12 +180,12 @@ export default function Home(): React.ReactElement {
             setError("")
 
             // Cache the transcript
-            setCachedData((prev:any ) => ({
+            setCachedData((prev: CachedData) => ({
               ...prev,
               transcripts: {
                 ...prev.transcripts,
                 [url]: {
-                  content: response.transcript,
+                  content: response.transcript || "",
                   timestamp: Date.now(),
                 },
               },
@@ -198,12 +198,12 @@ export default function Home(): React.ReactElement {
             setIsChatReady(true)
 
             // Cache the summary
-            setCachedData((prev:any) => ({
+            setCachedData((prev: CachedData) => ({
               ...prev,
               summaries: {
                 ...prev.summaries,
                 [url]: {
-                  content: response.summary,
+                  content: response.summary || "",
                   timestamp: Date.now(),
                 },
               },
@@ -605,4 +605,3 @@ export default function Home(): React.ReactElement {
     </main>
   )
 }
-
