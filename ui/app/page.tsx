@@ -1,318 +1,343 @@
-"use client";
+"use client"
 
-import { MessageCircle, Youtube, Fish, X } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
-import React from "react";
+import { MessageCircle, Youtube, Fish, X } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import type React from "react"
 
 // Type definitions
 interface CachedItem {
-  content: string;
-  timestamp: number;
+  content: string
+  timestamp: number
 }
 
 interface CachedData {
-  transcripts: Record<string, CachedItem>;
-  summaries: Record<string, CachedItem>;
+  transcripts: Record<string, CachedItem>
+  summaries: Record<string, CachedItem>
 }
 
 interface ChatMessage {
-  type: "user" | "ai";
-  content: string;
+  type: "user" | "ai"
+  content: string
 }
 
 interface WebSocketResponse {
-  status?: string;
-  type?: string;
-  message?: string;
-  transcript?: string;
-  summary?: string;
+  status?: string
+  type?: string
+  message?: string
+  transcript?: string
+  summary?: string
 }
 
 interface MessageData {
-  type: string;
-  message: string;
-  context: string;
+  type: string
+  message: string
+  context: string
 }
 
 const cn = (...classes: string[]): string => {
-  return classes.filter(Boolean).join(" ");
-};
+  return classes.filter(Boolean).join(" ")
+}
 
 const CACHE_KEYS = {
   TRANSCRIPTS: "youwin_transcripts",
   SUMMARIES: "youwin_summaries",
-  CURRENT_URL: "youwin_current_url"
-};
+  CURRENT_URL: "youwin_current_url",
+}
 
 export default function Home(): React.ReactElement {
-  const [url, setUrl] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [transcript, setTranscript] = useState<string>("");
-  const [summary, setSummary] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<string>("transcript");
-  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [currentMessage, setCurrentMessage] = useState<string>("");
-  const [isChatReady, setIsChatReady] = useState<boolean>(false);
-  
-  const webSocketRef = useRef<WebSocket | null>(null);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-  
+  const [url, setUrl] = useState<string>("")
+  const [isProcessing, setIsProcessing] = useState<boolean>(false)
+  const [transcript, setTranscript] = useState<string>("")
+  const [summary, setSummary] = useState<string>("")
+  const [error, setError] = useState<string>("")
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [activeTab, setActiveTab] = useState<string>("transcript")
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [currentMessage, setCurrentMessage] = useState<string>("")
+  const [isChatReady, setIsChatReady] = useState<boolean>(false)
+
+  const webSocketRef = useRef<WebSocket | null>(null)
+  const chatEndRef = useRef<HTMLDivElement | null>(null)
+
   const [cachedData, setCachedData] = useState<CachedData>({
     transcripts: {},
-    summaries: {}
-  });
+    summaries: {},
+  })
 
   // Load cached data on initial render
   useEffect(() => {
-    const storedTranscripts = localStorage.getItem(CACHE_KEYS.TRANSCRIPTS);
-    const storedSummaries = localStorage.getItem(CACHE_KEYS.SUMMARIES);
-    
-    if (storedTranscripts) {
-      setCachedData(prev => ({
-        ...prev,
-        transcripts: JSON.parse(storedTranscripts)
-      }));
-    }
-    
-    if (storedSummaries) {
-      setCachedData(prev => ({
-        ...prev,
-        summaries: JSON.parse(storedSummaries)
-      }));
-    }
-    
-    const storedUrl = localStorage.getItem(CACHE_KEYS.CURRENT_URL);
-    if (storedUrl) {
-      setUrl(storedUrl);
-      
-      // Optionally auto-load the transcript and summary for the stored URL
-      const cachedTranscript = storedTranscripts ? JSON.parse(storedTranscripts)[storedUrl] : null;
-      const cachedSummary = storedSummaries ? JSON.parse(storedSummaries)[storedUrl] : null;
-      
-      if (cachedTranscript) {
-        setTranscript(cachedTranscript.content);
-        setError("");
+    try {
+      const storedTranscripts = localStorage.getItem(CACHE_KEYS.TRANSCRIPTS)
+      const storedSummaries = localStorage.getItem(CACHE_KEYS.SUMMARIES)
+
+      if (storedTranscripts) {
+        setCachedData((prev) => ({
+          ...prev,
+          transcripts: JSON.parse(storedTranscripts),
+        }))
       }
-      
-      if (cachedSummary) {
-        setSummary(cachedSummary.content);
-        setIsChatReady(true);
+
+      if (storedSummaries) {
+        setCachedData((prev) => ({
+          ...prev,
+          summaries: JSON.parse(storedSummaries),
+        }))
       }
+
+      const storedUrl = localStorage.getItem(CACHE_KEYS.CURRENT_URL)
+      if (storedUrl) {
+        setUrl(storedUrl)
+
+        // Optionally auto-load the transcript and summary for the stored URL
+        const cachedTranscript = storedTranscripts ? JSON.parse(storedTranscripts)[storedUrl] : null
+        const cachedSummary = storedSummaries ? JSON.parse(storedSummaries)[storedUrl] : null
+
+        if (cachedTranscript) {
+          setTranscript(cachedTranscript.content)
+          setError("")
+        }
+
+        if (cachedSummary) {
+          setSummary(cachedSummary.content)
+          setIsChatReady(true)
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached data:", error)
     }
-  }, []);
+  }, [])
 
   // Save to cache whenever data changes
   useEffect(() => {
-    if (Object.keys(cachedData.transcripts).length > 0) {
-      localStorage.setItem(CACHE_KEYS.TRANSCRIPTS, JSON.stringify(cachedData.transcripts));
+    try {
+      if (Object.keys(cachedData.transcripts).length > 0) {
+        localStorage.setItem(CACHE_KEYS.TRANSCRIPTS, JSON.stringify(cachedData.transcripts))
+      }
+
+      if (Object.keys(cachedData.summaries).length > 0) {
+        localStorage.setItem(CACHE_KEYS.SUMMARIES, JSON.stringify(cachedData.summaries))
+      }
+    } catch (error) {
+      console.error("Error saving to cache:", error)
     }
-    
-    if (Object.keys(cachedData.summaries).length > 0) {
-      localStorage.setItem(CACHE_KEYS.SUMMARIES, JSON.stringify(cachedData.summaries));
-    }
-  }, [cachedData]);
+  }, [cachedData])
 
   // Save current URL to local storage whenever it changes
   useEffect(() => {
     if (url) {
-      localStorage.setItem(CACHE_KEYS.CURRENT_URL, url);
+      localStorage.setItem(CACHE_KEYS.CURRENT_URL, url)
     }
-  }, [url]);
-  
+  }, [url])
+
   // Scroll to bottom of chat when messages change
   useEffect(() => {
     if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }, [chatMessages]);
+  }, [chatMessages])
 
   const establishConnection = (): WebSocket => {
-    const ws = new WebSocket("ws://localhost:8000/ws");
-    
+    // Close any existing connection first
+    if (webSocketRef.current && webSocketRef.current.readyState === WebSocket.OPEN) {
+      webSocketRef.current.close(1000, "New connection initiated")
+    }
+
+    const ws = new WebSocket("wss://random-string.ngrok-free.app/ws")
+
     ws.onopen = () => {
-      console.log("WebSocket connection established");
-      setIsConnected(true);
-      
+      console.log("WebSocket connection established")
+      setIsConnected(true)
+
       // After connection is established, send the URL
-      ws.send(url);
-    };
-    
+      if (url) {
+        ws.send(url)
+      }
+    }
+
     ws.onmessage = (event: MessageEvent) => {
       try {
-        const response: WebSocketResponse = JSON.parse(event.data);
-        
+        const response: WebSocketResponse = JSON.parse(event.data)
+
         if (response.status === "connected") {
-          console.log("Connection confirmed by server");
-          return;
+          console.log("Connection confirmed by server")
+          return
         }
-        
+
         if (response.type === "chat_response") {
           // Handle chat response
           if (response.message) {
-            setChatMessages(prev => [
-              ...prev, 
-              { type: "ai", content: response.message }
-            ]);
+            setChatMessages((prev) => [...prev, { type: "ai", content: response.message }])
           }
-          return;
+          return
         }
-        
-        setIsProcessing(false);
-        
+
+        setIsProcessing(false)
+
         if (response.status === "success") {
           if (response.transcript) {
-            setTranscript(response.transcript);
-            setError("");
-            
+            setTranscript(response.transcript)
+            setError("")
+
             // Cache the transcript
-            setCachedData(prev => ({
+            setCachedData((prev) => ({
               ...prev,
               transcripts: {
                 ...prev.transcripts,
                 [url]: {
                   content: response.transcript,
-                  timestamp: Date.now()
-                }
-              }
-            }));
+                  timestamp: Date.now(),
+                },
+              },
+            }))
           }
-          
+
           // Handle summary if provided
           if (response.summary) {
-            setSummary(response.summary);
-            setIsChatReady(true);
-            
+            setSummary(response.summary)
+            setIsChatReady(true)
+
             // Cache the summary
-            setCachedData(prev => ({
+            setCachedData((prev) => ({
               ...prev,
               summaries: {
                 ...prev.summaries,
                 [url]: {
                   content: response.summary,
-                  timestamp: Date.now()
-                }
-              }
-            }));
+                  timestamp: Date.now(),
+                },
+              },
+            }))
           }
         } else if (response.status === "error") {
           if (response.message) {
-            setError(response.message);
+            setError(response.message)
           } else {
-            setError("An unknown error occurred");
+            setError("An unknown error occurred")
           }
-          setTranscript("");
-          setSummary("");
+          setTranscript("")
+          setSummary("")
         }
       } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
-        setError("Error processing server response");
-        setIsProcessing(false);
+        console.error("Error parsing WebSocket message:", err)
+        setError("Error processing server response")
+        setIsProcessing(false)
       }
-    };
-    
+    }
+
     ws.onclose = (event: CloseEvent) => {
-      console.log("WebSocket connection closed", event.code, event.reason);
-      setIsConnected(false);
-    };
-    
+      console.log("WebSocket connection closed", event.code, event.reason)
+      setIsConnected(false)
+    }
+
     ws.onerror = (error: Event) => {
-      console.error("WebSocket error:", error);
-      setError("WebSocket connection error. Please try again later.");
-      setIsProcessing(false);
-      setIsConnected(false);
-    };
-    
-    webSocketRef.current = ws;
-    return ws;
-  };
+      console.error("WebSocket error:", error)
+      setError("WebSocket connection error. Please try again later.")
+      setIsProcessing(false)
+      setIsConnected(false)
+    }
+
+    webSocketRef.current = ws
+    return ws
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
+    e.preventDefault()
+
     // Reset error state
-    setError("");
-    
+    setError("")
+
     // Check if URL is provided
     if (!url.trim()) {
-      setError("Please enter a YouTube URL");
-      return;
+      setError("Please enter a YouTube URL")
+      return
     }
-    
+
     // Check if we have cached results for this URL
-    const hasCachedTranscript = cachedData.transcripts[url];
-    const hasCachedSummary = cachedData.summaries[url];
-    
+    const hasCachedTranscript = cachedData.transcripts[url]
+    const hasCachedSummary = cachedData.summaries[url]
+
     if (hasCachedTranscript && hasCachedSummary) {
-      console.log("Using cached data for", url);
-      setTranscript(cachedData.transcripts[url].content);
-      setSummary(cachedData.summaries[url].content);
-      setIsChatReady(true);
-      return;
+      console.log("Using cached data for", url)
+      setTranscript(cachedData.transcripts[url].content)
+      setSummary(cachedData.summaries[url].content)
+      setIsChatReady(true)
+      return
     }
-    
+
     // If not cached, proceed with WebSocket connection
-    setIsProcessing(true);
-    setTranscript("");
-    setSummary("");
-    setIsChatReady(false);
-    
-    // Close any existing connection
-    if (webSocketRef.current) {
-      webSocketRef.current.close(1000, "New request initiated");
-    }
-    
+    setIsProcessing(true)
+    setTranscript("")
+    setSummary("")
+    setIsChatReady(false)
+
     // Establish a new connection for this request
-    establishConnection();
-  };
+    const ws = establishConnection()
+
+    // Make sure the connection is open before sending the URL
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(url)
+    }
+    // If not open yet, the URL will be sent in the onopen handler
+  }
 
   const clearCache = (): void => {
-    localStorage.removeItem(CACHE_KEYS.TRANSCRIPTS);
-    localStorage.removeItem(CACHE_KEYS.SUMMARIES);
-    setCachedData({
-      transcripts: {},
-      summaries: {}
-    });
-    setTranscript("");
-    setSummary("");
-    setError("");
-    setIsChatReady(false);
-  };
-  
+    try {
+      localStorage.removeItem(CACHE_KEYS.TRANSCRIPTS)
+      localStorage.removeItem(CACHE_KEYS.SUMMARIES)
+      setCachedData({
+        transcripts: {},
+        summaries: {},
+      })
+      setTranscript("")
+      setSummary("")
+      setError("")
+      setIsChatReady(false)
+    } catch (error) {
+      console.error("Error clearing cache:", error)
+      setError("Failed to clear cache")
+    }
+  }
+
   const sendChatMessage = (e: React.FormEvent<HTMLFormElement>): void => {
-    e.preventDefault();
-    
-    if (!currentMessage.trim()) return;
-    
+    e.preventDefault()
+
+    if (!currentMessage.trim()) return
+
     // Add user message to chat
-    setChatMessages(prev => [
-      ...prev, 
-      { type: "user", content: currentMessage }
-    ]);
-    
+    setChatMessages((prev) => [...prev, { type: "user", content: currentMessage }])
+
     // Prepare to send message to backend
     const messageData: MessageData = {
       type: "chat",
       message: currentMessage,
-      context: transcript // Include the transcript as context
-    };
-    
+      context: transcript, // Include the transcript as context
+    }
+
     // Clear input
-    setCurrentMessage("");
-    
+    setCurrentMessage("")
+
     // Send to backend
     // Make sure a connection exists
-    const ws = webSocketRef.current || establishConnection();
-    ws.send(JSON.stringify(messageData));
-  };
+    let ws = webSocketRef.current
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      ws = establishConnection()
+      // Need to wait for connection to open before sending
+      ws.onopen = () => {
+        ws?.send(JSON.stringify(messageData))
+      }
+    } else {
+      // Connection already open, send immediately
+      ws.send(JSON.stringify(messageData))
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#020817] text-white overflow-x-hidden">
       {/* Background Elements */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551614337-012fc9feb662')] bg-cover bg-center opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('/placeholder.svg?height=1080&width=1920')] bg-cover bg-center opacity-20"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#020817]/50 to-[#020817]"></div>
       </div>
 
@@ -350,10 +375,7 @@ export default function Home(): React.ReactElement {
                   )}
                 </div>
                 {(Object.keys(cachedData.transcripts).length > 0 || Object.keys(cachedData.summaries).length > 0) && (
-                  <button 
-                    onClick={clearCache}
-                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                  >
+                  <button onClick={clearCache} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
                     Clear Cache
                   </button>
                 )}
@@ -394,19 +416,20 @@ export default function Home(): React.ReactElement {
                     "w-full py-3 px-6 rounded-lg text-white font-medium transition-all duration-300",
                     "bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-500 hover:to-blue-300",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
-                    "shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)]"
+                    "shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)]",
                   )}
                 >
-                  {isProcessing ? "Processing..." : 
-                    (cachedData.transcripts[url] && cachedData.summaries[url]) 
-                      ? "Load Cached Data" 
+                  {isProcessing
+                    ? "Processing..."
+                    : cachedData.transcripts[url] && cachedData.summaries[url]
+                      ? "Load Cached Data"
                       : "Process Video"}
                 </button>
                 {(cachedData.transcripts[url] || cachedData.summaries[url]) && (
                   <p className="text-xs text-blue-400 text-center">
-                    Cached {new Date(
-                      cachedData.transcripts[url]?.timestamp || 
-                      cachedData.summaries[url]?.timestamp
+                    Cached{" "}
+                    {new Date(
+                      cachedData.transcripts[url]?.timestamp || cachedData.summaries[url]?.timestamp || 0,
                     ).toLocaleString()}
                   </p>
                 )}
@@ -432,7 +455,7 @@ export default function Home(): React.ReactElement {
                           "py-2 px-4 font-medium -mb-px",
                           activeTab === "transcript"
                             ? "border-b-2 border-blue-400 text-blue-400"
-                            : "text-blue-200/60 hover:text-blue-200"
+                            : "text-blue-200/60 hover:text-blue-200",
                         )}
                         onClick={() => setActiveTab("transcript")}
                       >
@@ -443,20 +466,20 @@ export default function Home(): React.ReactElement {
                           "py-2 px-4 font-medium -mb-px",
                           activeTab === "summary"
                             ? "border-b-2 border-blue-400 text-blue-400"
-                            : "text-blue-200/60 hover:text-blue-200"
+                            : "text-blue-200/60 hover:text-blue-200",
                         )}
                         onClick={() => setActiveTab("summary")}
                       >
                         Summary
                       </button>
                     </div>
-                    
+
                     {/* Tab Content */}
                     <div className="min-h-[200px]">
                       {activeTab === "transcript" && (
                         <div className="max-h-96 overflow-y-auto text-blue-100 whitespace-pre-line">{transcript}</div>
                       )}
-                      
+
                       {activeTab === "summary" && (
                         <div className="max-h-96 overflow-y-auto text-blue-100">
                           {summary ? (
@@ -507,21 +530,21 @@ export default function Home(): React.ReactElement {
         </div>
 
         {/* Chat Button */}
-        <button 
+        <button
           className={cn(
             "fixed bottom-6 right-6 md:bottom-8 md:right-8 p-4 rounded-full",
-            "shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)]", 
+            "shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.4)]",
             "transition-all duration-300",
-            isChatReady 
-              ? "bg-gradient-to-r from-green-600 to-green-400" 
-              : "bg-gradient-to-r from-blue-600 to-blue-400 opacity-70"
+            isChatReady
+              ? "bg-gradient-to-r from-green-600 to-green-400"
+              : "bg-gradient-to-r from-blue-600 to-blue-400 opacity-70",
           )}
           onClick={() => isChatReady && setIsChatOpen(true)}
           disabled={!isChatReady}
         >
           <MessageCircle className="text-white w-6 h-6 md:w-7 md:h-7" />
         </button>
-        
+
         {/* Chat Window */}
         {isChatOpen && (
           <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 w-full md:w-96 h-96 z-50">
@@ -529,14 +552,11 @@ export default function Home(): React.ReactElement {
               {/* Chat Header */}
               <div className="flex items-center justify-between p-4 border-b border-blue-500/20">
                 <h3 className="font-medium text-blue-300">Chat about this video</h3>
-                <button 
-                  onClick={() => setIsChatOpen(false)}
-                  className="text-blue-400 hover:text-blue-300"
-                >
+                <button onClick={() => setIsChatOpen(false)} className="text-blue-400 hover:text-blue-300">
                   <X size={18} />
                 </button>
               </div>
-              
+
               {/* Chat Messages */}
               <div className="flex-grow overflow-y-auto p-4 space-y-4">
                 {/* Welcome Message */}
@@ -545,16 +565,13 @@ export default function Home(): React.ReactElement {
                     Ask me anything about the video content!
                   </div>
                 )}
-                
                 {/* Message Bubbles */}
                 {chatMessages.map((msg, index) => (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     className={cn(
                       "max-w-[85%] p-3 rounded-lg",
-                      msg.type === "user" 
-                        ? "bg-blue-600/30 ml-auto" 
-                        : "bg-blue-500/10 mr-auto"
+                      msg.type === "user" ? "bg-blue-600/30 ml-auto" : "bg-blue-500/10 mr-auto",
                     )}
                   >
                     {msg.content}
@@ -562,7 +579,7 @@ export default function Home(): React.ReactElement {
                 ))}
                 <div ref={chatEndRef} /> {/* Scroll anchor */}
               </div>
-              
+
               {/* Chat Input */}
               <form onSubmit={sendChatMessage} className="p-4 border-t border-blue-500/20">
                 <div className="flex gap-2">
@@ -586,5 +603,6 @@ export default function Home(): React.ReactElement {
         )}
       </div>
     </main>
-  );
+  )
 }
+
